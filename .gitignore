@@ -1,0 +1,8 @@
+.DS_Store
+src/.deps/*
+Makefile
+config.h
+config.log
+config.status
+stamp-h1
+doom.gtp
