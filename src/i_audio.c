@@ -110,7 +110,12 @@ void I_InitAudio(void)
 
 		if (Mix_OpenAudio(sysaudio.desired.freq, sysaudio.desired.format,
 			sysaudio.desired.channels, sysaudio.desired.samples)<0) {
+#if 0
 			I_Error("Could not open audio: %s\n", SDL_GetError());
+#else			
+			sysaudio.enabled = false;
+			return;
+#endif			
 		}
 
 		if (!Mix_QuerySpec(&freq, &format, &channels)) {
@@ -142,7 +147,12 @@ void I_InitAudio(void)
 	sysaudio.desired.userdata = NULL;
 
 	if (SDL_OpenAudio(&sysaudio.desired, &sysaudio.obtained)<0) {
+#if 0
 		I_Error("Could not open audio: %s\n", SDL_GetError());
+#else
+		sysaudio.enabled = false;
+		return;
+#endif		
 	}
 
 	if ((sysaudio.obtained.format != AUDIO_S16SYS) || (sysaudio.obtained.channels != 2)) {
