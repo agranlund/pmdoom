@@ -145,8 +145,10 @@ void I_Init (void)
 #endif
 
 	I_InitFpu();
+
 	I_InitAudio();
 	//  I_InitGraphics();
+
 	if (i_CDMusic) {
 		if (I_CDMusInit() == -1) {
 			fprintf(stderr, "Can not use CD for music replay\n");
@@ -172,28 +174,38 @@ static void I_InitFpu(void)
 	FixedMul = FixedMul020;
 	FixedDiv2 = FixedDiv2020;
 
+#if defined(__mc68060__)
 	if (cpu_cookie==60) {
-	    __asm__ __volatile__ (
-				".chip	68060\n"
-			"	fmove%.l	fpcr,d0\n"
-			"	andl	#~0x30,d0\n"
-			"	orb		#0x20,d0\n"
-			"	fmove%.l	d0,fpcr\n"
-#if defined(__mc68020__)
-			"	.chip	68020"
-#else
-			"	.chip	68000"
-#endif
-			: /* no return value */
-			: /* no input */
-			: /* clobbered registers */
-				"d0", "cc"
-		);
 
-		FixedMul = FixedMul060;
-		FixedDiv2 = FixedDiv2060;
+		long fpu_cookie;
+		if (Getcookie(C__FPU, &fpu_cookie) != C_FOUND)
+			fpu_cookie = 0;
+
+		if ((fpu_cookie >> 16) > 1)
+		{
+
+	   	 __asm__ __volatile__ (
+					".chip	68060\n"
+				"	fmove%.l	fpcr,d0\n"
+				"	andl	#~0x30,d0\n"
+				"	orb		#0x20,d0\n"
+				"	fmove%.l	d0,fpcr\n"
+#if defined(__mc68020__)
+				"	.chip	68020"
+#endif
+				: /* no return value */
+				: /* no input */
+				: /* clobbered registers */
+					"d0", "cc"
+			);
+
+			FixedMul = FixedMul060;
+			FixedDiv2 = FixedDiv2060;
+		}
 		sysgame.cpu060 = true;
 	}
+#endif
+
 #endif
 }
 
