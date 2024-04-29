@@ -1426,7 +1426,11 @@ void ST_Init (void)
 
 void ST_DrawFps(int fps)
 {
-	int d,u;
+	int i,d,u;
+
+	for (i = 0; i < 6*st_coefy; i++) {
+		R_VideoErase(sysvideo.width-8*st_coefx, i, 8);
+	}
 
 	if (fps>99)
 		fps=99;
@@ -1436,6 +1440,7 @@ void ST_DrawFps(int fps)
 
 	V_DrawPatchST(sysvideo.width-8*st_coefx,0,0,shortnum[d]);
 	V_DrawPatchST(sysvideo.width-4*st_coefx,0,0,shortnum[u]);
+
 }
 
 void ST_SetNumRefresh(int num_refresh)
