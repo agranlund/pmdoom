@@ -27,14 +27,14 @@ void I_NetCmd (void);
 extern void (*I_InitNetwork)(void);	/* Init network */
 extern void (*I_ShutdownNetwork)(void);	/* Shutdown network */
 
-void	(*netget) (void);
-void	(*netsend) (void);
+extern void	(*netget) (void);
+extern void	(*netsend) (void);
 
-void I_InitNetwork_unix(void);
-void I_ShutdownNetwork_unix(void);
+extern void I_InitNetwork_unix(void);
+extern void I_ShutdownNetwork_unix(void);
 
-void I_InitNetwork_sting(void);
-void I_ShutdownNetwork_sting(void);
+extern void I_InitNetwork_sting(void);
+extern void I_ShutdownNetwork_sting(void);
 
 typedef struct {
 	int layer;

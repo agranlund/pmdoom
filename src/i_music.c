@@ -37,7 +37,7 @@
 #include "sounds.h"
 #include "w_wad.h"
 
-int snd_MusicVolume;
+extern int snd_MusicVolume;
 
 #ifdef ENABLE_SDLMIXER
 static Mix_Music *music=NULL;
