@@ -8,3 +8,5 @@ config.log
 config.status
 stamp-h1
 doom.gtp
+doom/*
+doom.zip

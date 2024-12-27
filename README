@@ -1,5 +1,11 @@
 * PmDoom
 
+
+Sourcecode: https://github.com/agranlund/pmdoom
+Based on pmdoom-0.60 by Patrice Mandin <patmandin@gmail.com>
+http://pmandin.atari.org/
+
+
 It is based on linuxxdoom-1.10, available on Id Software's ftp site.
 You need the PC version of Doom (shareware or registered) or Doom 2.
 
