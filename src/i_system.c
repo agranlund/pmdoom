@@ -157,6 +157,19 @@ void I_Init (void)
 	}
 }
 
+
+#if defined(__MINT__) && !defined(__mcoldfire__) && defined(__mc68060__)
+static unsigned long Get68060PCR() {
+	unsigned long retvalue;
+    __asm__ __volatile__ (
+        "   .dc.l   0x4e7a0808\n"     /* movec pcr,d0 */
+        "   move.l  d0,%0\n"
+        : "=d"(retvalue) : : "d0", "cc"
+    );
+    return retvalue;
+}
+#endif
+
 static void I_InitFpu(void)
 {
 #if defined(__MINT__) && !defined(__mcoldfire__)
@@ -183,24 +196,30 @@ static void I_InitFpu(void)
 
 		if ((fpu_cookie >> 16) > 1)
 		{
+            // test EC/LC and FPU disable bits in PCR
+            unsigned long fpu_disable = Supexec(Get68060PCR) & ((1 << 16) | (1 << 1));
 
-	   	 __asm__ __volatile__ (
-					".chip	68060\n"
-				"	fmove%.l	fpcr,d0\n"
-				"	andl	#~0x30,d0\n"
-				"	orb		#0x20,d0\n"
-				"	fmove%.l	d0,fpcr\n"
-#if defined(__mc68020__)
-				"	.chip	68020"
-#endif
-				: /* no return value */
-				: /* no input */
-				: /* clobbered registers */
-					"d0", "cc"
-			);
+            if (fpu_disable == 0)
+            {
+                __asm__ __volatile__ (
+                    ".chip	68060\n"
+                    "	fmove%.l	fpcr,d0\n"
+                    "	and.l	    #~0x30,d0\n"
+                    "	or.b		#0x20,d0\n"
+                    "	fmove%.l	d0,fpcr\n"
+                    "1:\n"
+    #if defined(__mc68020__)
+                    "	.chip	68020"
+    #endif
+                    : /* return values */
+                    : /* no input */
+                    : /* clobbered registers */
+                        "d0", "cc"
+                );
 
-			FixedMul = FixedMul060;
-			FixedDiv2 = FixedDiv2060;
+                FixedMul = FixedMul060;
+                FixedDiv2 = FixedDiv2060;
+            }
 		}
 		sysgame.cpu060 = true;
 	}
