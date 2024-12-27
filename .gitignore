@@ -1,5 +1,7 @@
 .DS_Store
+src/doom
 src/.deps/*
+src/*.o
 Makefile
 config.h
 config.log
