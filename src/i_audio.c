@@ -66,126 +66,115 @@ sysaudio_t	sysaudio;
 
 void I_UpdateAudio(void *unused, Uint8 *stream, int len)
 {
-	I_UpdateMusic(unused, stream, len);
-	I_UpdateSound(unused, stream, len);
+    if (sysaudio.music_enabled) {
+	    I_UpdateMusic(unused, stream, len);
+    }
+
+    if (sysaudio.sound_enabled) {
+	    I_UpdateSound(unused, stream, len);
+    }
 }
 
 void I_ShutdownAudio(void)
 {    
-	if (!sysaudio.enabled)
-		return;
+    if (sysaudio.music_enabled) {
+	    I_ShutdownMusic();
+    }
 
-	I_ShutdownSound();
-	I_ShutdownMusic();
+	if (sysaudio.sound_enabled) {
+    	I_ShutdownSound();
+    }
 
-#ifdef ENABLE_SDLMIXER
-	Mix_CloseAudio();
-#else
-	SDL_CloseAudio();
-#endif
+    if (sysaudio.pcm_available) {
+        #ifdef ENABLE_SDLMIXER
+    	Mix_CloseAudio();
+        #else
+	    SDL_CloseAudio();
+        #endif
+    }
 }
 
 void I_InitAudio(void)
 { 
-	sysaudio.obtained.freq = sysaudio.desired.freq =
-		SAMPLERATE;
-	sysaudio.obtained.format = sysaudio.desired.format =
-		AUDIO_S16SYS;
-	sysaudio.obtained.channels = sysaudio.desired.channels =
-		2;
-	sysaudio.obtained.samples = sysaudio.desired.samples =
-		SAMPLECOUNT;
-	sysaudio.obtained.size = sysaudio.desired.size =
-		(SAMPLECOUNT*sysaudio.obtained.channels*((sysaudio.obtained.format&0xff)>>3));
-
-	if (!sysaudio.enabled)
-		return;
-
+	sysaudio.obtained.freq = sysaudio.desired.freq = SAMPLERATE;
+	sysaudio.obtained.format = sysaudio.desired.format = AUDIO_S16SYS;
+	sysaudio.obtained.channels = sysaudio.desired.channels = 2;
+	sysaudio.obtained.samples = sysaudio.desired.samples = SAMPLECOUNT;
+	sysaudio.obtained.size = sysaudio.desired.size = (SAMPLECOUNT*sysaudio.obtained.channels*((sysaudio.obtained.format&0xff)>>3));
 	sysaudio.convert = false;
 
 #ifdef ENABLE_SDLMIXER
-	{
-		int freq, channels;
-		Uint16 format;
-
-		if (Mix_OpenAudio(sysaudio.desired.freq, sysaudio.desired.format,
-			sysaudio.desired.channels, sysaudio.desired.samples)<0) {
-#if 0
-			I_Error("Could not open audio: %s\n", SDL_GetError());
-#else			
-			sysaudio.enabled = false;
-			return;
-#endif			
-		}
-
-		if (!Mix_QuerySpec(&freq, &format, &channels)) {
-			I_Error("Could not open audio: %s\n", SDL_GetError());
-		}
-
-		sysaudio.obtained.freq = freq;
-		sysaudio.obtained.channels = channels;
-		sysaudio.obtained.format = format;
-		sysaudio.obtained.size = (SAMPLECOUNT*channels*((format&0xff)>>3));
-
-		if ((sysaudio.obtained.format != AUDIO_S16SYS) || (sysaudio.obtained.channels != 2)) {
-			if (SDL_BuildAudioCVT(&sysaudio.audioCvt,
-				AUDIO_S16SYS, 2, sysaudio.obtained.freq,
-				sysaudio.obtained.format, sysaudio.obtained.channels, sysaudio.obtained.freq) == -1) {
-				I_Error("Could not create audio converter\n");
-			}
-			sysaudio.convert = true;
-		}
-
-		I_InitMusic();
-		I_InitSound();
-
-		Mix_SetPostMix(I_UpdateSound, NULL);
-/*		Mix_ReserveChannels(NUM_CHANNELS);*/
+    if (sysaudio.pcm_available) {
+        sysaudio.pcm_available = false
+		Uint16 format; int freq, channels;
+		if (Mix_OpenAudio(sysaudio.desired.freq, sysaudio.desired.format, sysaudio.desired.channels, sysaudio.desired.samples) >= 0) {
+            if (Mix_QuerySpec(&freq, &format, &channels)) {
+                sysaudio.obtained.freq = freq;
+                sysaudio.obtained.channels = channels;
+                sysaudio.obtained.format = format;
+                sysaudio.obtained.size = (SAMPLECOUNT*channels*((format&0xff)>>3));
+                sysaudio.pcm_available = true;
+            }
+        }
 	}
 #else
-	sysaudio.desired.callback = I_UpdateAudio;
-	sysaudio.desired.userdata = NULL;
-
-	if (SDL_OpenAudio(&sysaudio.desired, &sysaudio.obtained)<0) {
-#if 0
-		I_Error("Could not open audio: %s\n", SDL_GetError());
-#else
-		sysaudio.enabled = false;
-		return;
-#endif		
-	}
-
-	if ((sysaudio.obtained.format != AUDIO_S16SYS) || (sysaudio.obtained.channels != 2)) {
-		if (SDL_BuildAudioCVT(&sysaudio.audioCvt,
-			AUDIO_S16SYS, 2, sysaudio.obtained.freq,
-			sysaudio.obtained.format, sysaudio.obtained.channels, sysaudio.obtained.freq) == -1) {
-			I_Error("Could not create audio converter\n");
-		}
-		sysaudio.convert = true;
-	}
-
-	I_InitMusic();
-	I_InitSound();
-
-	SDL_PauseAudio(0);
+    if (sysaudio.pcm_available) {
+        sysaudio.desired.callback = I_UpdateAudio;
+        sysaudio.desired.userdata = NULL;
+        if (SDL_OpenAudio(&sysaudio.desired, &sysaudio.obtained) < 0) {
+            sysaudio.pcm_available = false;
+        }
+    }
 #endif
 
-	{
-		char deviceName[32];
+    if (sysaudio.pcm_available) {
+        if ((sysaudio.obtained.format != AUDIO_S16SYS) || (sysaudio.obtained.channels != 2)) {
+            sysaudio.convert = true;
+            if (SDL_BuildAudioCVT(&sysaudio.audioCvt, AUDIO_S16SYS, 2, sysaudio.obtained.freq, sysaudio.obtained.format, sysaudio.obtained.channels, sysaudio.obtained.freq) == -1) {
+                sysaudio.pcm_available = false;
+            }
+        }
+    }
 
-		if (SDL_AudioDriverName(deviceName, sizeof(deviceName))==NULL) {
-			memset(deviceName, 0, sizeof(deviceName));
-		}		
-		deviceName[sizeof(deviceName)-1]='\0';
-		
-	fprintf(stderr, "Audio device: %s, %d Hz, %d bits, %d channels\n",
-/*	", %d frames, %d bytes\n",*/
-		deviceName,
-		sysaudio.obtained.freq,
-		sysaudio.obtained.format & 0xff,
-		sysaudio.obtained.channels/*,
-		sysaudio.obtained.samples,
-		sysaudio.obtained.size*/
-	);
-	}
+    if (sysaudio.music_enabled) {
+	    if (!I_InitMusic()) {
+            sysaudio.music_enabled = false;
+        }
+    }
+
+    if (sysaudio.sound_enabled) {
+        if (!I_InitSound()) {
+            sysaudio.sound_enabled = false;
+        }
+    }
+
+    if (sysaudio.pcm_available)
+	{
+        if (!(sysaudio.music_enabled || sysaudio.sound_enabled)) {
+            /* no sound or music, may as well close pcm audio */
+    #ifdef ENABLE_SDLMIXER
+        	Mix_CloseAudio();
+    #else
+	        SDL_CloseAudio();
+    #endif
+            sysaudio.pcm_available = false;
+        } else {
+            /* sound and/or music enabled and pcm available */
+    #ifdef ENABLE_SDLMIXER
+            Mix_SetPostMix(I_UpdateSound, NULL);
+    #else
+            SDL_PauseAudio(0);
+    #endif
+            char deviceName[32];
+            if (SDL_AudioDriverName(deviceName, sizeof(deviceName))==NULL) {
+                memset(deviceName, 0, sizeof(deviceName));
+            }		
+            deviceName[sizeof(deviceName)-1]='\0';
+            fprintf(stderr, "PCM Audio device: %s, %d Hz, %d bits, %d channels\n",
+                deviceName,
+                sysaudio.obtained.freq,
+                sysaudio.obtained.format & 0xff,
+                sysaudio.obtained.channels);
+        }
+    }
 }

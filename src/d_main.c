@@ -31,6 +31,8 @@
 #include <fcntl.h>
 #include <string.h>
 
+#include <mint/osbind.h>
+
 #include <SDL.h>
 
 #include "doomdef.h"
@@ -149,8 +151,8 @@ void D_DoAdvanceDemo (void);
 // Events can be discarded if no responder claims them
 //
 event_t         events[MAXEVENTS];
-int             eventhead;
-int 		eventtail;
+int             eventhead = 0;
+int 		eventtail = 0;
 
 
 //
@@ -176,7 +178,7 @@ void D_ProcessEvents (void)
 	if ( store_demo )
 		return;
 
-	for ( ; eventtail != eventhead ; eventtail = (++eventtail)&(MAXEVENTS-1) )
+	for ( ; eventtail != eventhead ; eventtail = ((eventtail + 1) & (MAXEVENTS-1)))
     {
 		ev = &events[eventtail];
 		if (M_Responder (ev))
@@ -379,6 +381,9 @@ void D_DoomLoop (void)
 
 		// Update display, next frame, with current state.
 		D_Display ();
+
+        // temp
+        I_UpdateMusic(0, 0, 0);
 	}
 }
 
@@ -844,11 +849,27 @@ void D_DoomMain (void)
 		}
 	}
 
-	sysaudio.enabled=true;
+	sysaudio.music_enabled=true;
+	p=M_CheckParm ("-music");
+    if (p && (p<myargc-1)) {
+		if (strcmp(myargv[p+1],"off")==0) {
+			sysaudio.music_enabled = false;
+		}
+	}
+
+	sysaudio.sound_enabled=true;
+	p=M_CheckParm ("-sound");
+    if (p && (p<myargc-1)) {
+		if (strcmp(myargv[p+1],"off")==0) {
+			sysaudio.sound_enabled = false;
+		}
+	}
+
 	p=M_CheckParm ("-audio");
     if (p && (p<myargc-1)) {
 		if (strcmp(myargv[p+1],"off")==0) {
-			sysaudio.enabled = false;
+			sysaudio.sound_enabled = false;
+			sysaudio.music_enabled = false;
 		}
 	}
 

@@ -151,12 +151,8 @@ void S_Init
   int		i;
 
 //  fprintf( stderr, "S_Init: default sfx volume %d\n", sfxVolume);
-
-  // Whatever these did with DMX, these are rather dummies now.
   I_SetChannels();
-  
   S_SetSfxVolume(sfxVolume);
-  // No music with Linux - another dummy.
   S_SetMusicVolume(musicVolume);
 
   // Allocating the internal channels for mixing
@@ -166,23 +162,24 @@ void S_Init
 		numChannels = NUM_CHANNELS;
 	}
 
-  channels =
-    (channel_t *) Z_Malloc(numChannels*sizeof(channel_t), PU_STATIC, 0);
+    channels = (channel_t *) Z_Malloc(numChannels*sizeof(channel_t), PU_STATIC, 0);
   
-  // Free all channels for use
-  for (i=0 ; i<numChannels ; i++)
-    channels[i].sfxinfo = 0;
+    // Free all channels for use
+    for (i=0 ; i<numChannels ; i++) {
+        channels[i].sfxinfo = 0;
+    }
   
-  // no sounds are playing, and they are not mus_paused
-  mus_paused = 0;
+    // no sounds are playing, and they are not mus_paused
+    mus_paused = 0;
 
-  // Note that sounds have not been cached (yet).
-  for (i=1 ; i<NUMSFX ; i++)
-    S_sfx[i].lumpnum = S_sfx[i].usefulness = -1;
+    // Note that sounds have not been cached (yet).
+    for (i=1 ; i<NUMSFX ; i++) {
+        S_sfx[i].lumpnum = S_sfx[i].usefulness = -1;
+    }
 
-	if (i_CDMusic) {
-		i_CDMusic = (I_CDMusInit() != -1);
-	}
+    if (i_CDMusic) {
+        i_CDMusic = (I_CDMusInit() != -1);
+    }
 }
 
 
@@ -260,7 +257,7 @@ S_StartSoundAtVolume
 	int vol1;
 	mobj_t *origin;
 
-	if (!sysaudio.enabled)
+	if (!sysaudio.sound_enabled)
 		return;
 
 	origin = (mobj_t *) origin_p;
@@ -496,60 +493,60 @@ void S_UpdateSounds(void* listener_p)
 	channel_t*	c;
 	mobj_t *listener;
 
-	if (!sysaudio.enabled)
-		return;
-
 	if (i_CDMusic) {
 		I_UpdateCDMusic();
 	}
 
-	listener = (mobj_t*)listener_p;
+	if (sysaudio.sound_enabled) {
 
-	if (nextcleanup < gametic) {
-		I_UpdateSounds();
-		nextcleanup = gametic+TICRATE;
-	}
+        listener = (mobj_t*)listener_p;
 
-	for (cnum=0 ; cnum<numChannels ; cnum++) {
-		c = &channels[cnum];
-		sfx = c->sfxinfo;
+        if (nextcleanup < gametic) {
+            I_UpdateSounds();
+            nextcleanup = gametic+TICRATE;
+        }
 
-		if (c->sfxinfo) {
-			if (I_SoundIsPlaying(c->handle)) {
-				// initialize parameters
-				volume = snd_SfxVolume;
-				pitch = NORM_PITCH;
-				sep = NORM_SEP;
+        for (cnum=0 ; cnum<numChannels ; cnum++) {
+            c = &channels[cnum];
+            sfx = c->sfxinfo;
 
-				if (sfx->link) {
-					pitch = sfx->pitch;
-					volume += sfx->volume;
-					if (volume < 1) {
-						S_StopChannel(cnum);
-						continue;
-					} else if (volume > snd_SfxVolume) {
-						volume = snd_SfxVolume;
-					}
-				}
+            if (c->sfxinfo) {
+                if (I_SoundIsPlaying(c->handle)) {
+                    // initialize parameters
+                    volume = snd_SfxVolume;
+                    pitch = NORM_PITCH;
+                    sep = NORM_SEP;
 
-				// check non-local sounds for distance clipping
-				//  or modify their params
-				if (c->origin && listener_p != c->origin) {
-					audible = S_AdjustSoundParams(listener, c->origin,
-						&volume, &sep, &pitch);
+                    if (sfx->link) {
+                        pitch = sfx->pitch;
+                        volume += sfx->volume;
+                        if (volume < 1) {
+                            S_StopChannel(cnum);
+                            continue;
+                        } else if (volume > snd_SfxVolume) {
+                            volume = snd_SfxVolume;
+                        }
+                    }
 
-					if (!audible) {
-						S_StopChannel(cnum);
-					} else
-						I_UpdateSoundParams(c->handle, volume, sep, pitch);
-				}
-			} else {
-				// if channel is allocated but sound has stopped,
-				//  free it
-				S_StopChannel(cnum);
-			}
-		}
-	}
+                    // check non-local sounds for distance clipping
+                    //  or modify their params
+                    if (c->origin && listener_p != c->origin) {
+                        audible = S_AdjustSoundParams(listener, c->origin,
+                            &volume, &sep, &pitch);
+
+                        if (!audible) {
+                            S_StopChannel(cnum);
+                        } else
+                            I_UpdateSoundParams(c->handle, volume, sep, pitch);
+                    }
+                } else {
+                    // if channel is allocated but sound has stopped,
+                    //  free it
+                    S_StopChannel(cnum);
+                }
+            }
+        }
+    }
 
 /*
 	// kill music if it is a single-play && finished
@@ -564,10 +561,8 @@ void S_UpdateSounds(void* listener_p)
 
 void S_SetMusicVolume(int volume)
 {
-    if (volume < 0 || volume > 15)
-    {
-	I_Error("Attempt to set music volume at %d",
-		volume);
+    if (volume < 0 || volume > 15) {
+	    I_Error("Attempt to set music volume at %d", volume);
     }    
 
 	if (i_CDMusic) {
@@ -583,12 +578,10 @@ void S_SetMusicVolume(int volume)
 
 void S_SetSfxVolume(int volume)
 {
-
-    if (volume < 0 || volume > 15)
-	I_Error("Attempt to set sfx volume at %d", volume);
-
+    if (volume < 0 || volume > 15) {
+	    I_Error("Attempt to set sfx volume at %d", volume);
+    }
     snd_SfxVolume = volume;
-
 }
 
 //
@@ -725,7 +718,7 @@ S_AdjustSoundParams
     fixed_t	ady;
     angle_t	angle;
 
-	if (!sysaudio.enabled)
+	if (!sysaudio.sound_enabled)
 		return 0;
 
     // calculate the distance to sound origin

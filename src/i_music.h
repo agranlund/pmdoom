@@ -26,7 +26,7 @@ void I_UpdateMusic(void *unused, Uint8 *stream, int len);
 //
 //  MUSIC I/O
 //
-void I_InitMusic(void);
+int I_InitMusic(void);
 void I_ShutdownMusic(void);
 // Volume.
 void I_SetMusicVolume(int volume);

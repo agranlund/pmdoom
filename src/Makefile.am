@@ -13,7 +13,8 @@ header_files = am_map.h d_englsh.h d_event.h d_french.h d_items.h d_main.h \
 	r_data.h r_defs.h r_draw.h r_local.h r_main.h r_plane.h r_segs.h r_sky.h \
 	r_state.h r_things.h sounds.h s_sound.h st_lib.h st_stuff.h tables.h \
 	v_video.h wi_stuff.h w_wad.h z_zone.h i_audio.h i_music.h i_qmus2mid.h \
-	i_rgb2yuv.h i_cdmus.h
+    i_rgb2yuv.h i_cdmus.h \
+    i_music_sdl.h i_music_opl.h i_music_midi.h mus2mid.h memio.h opl.h isa.h 
 
 doom_SOURCES = am_map.c d_items.c d_main.c d_net.c doomstat.c \
 	dstrings.c f_finale.c f_wipe.c g_game.c hu_lib.c hu_stuff.c i_main.c \
@@ -23,8 +24,9 @@ doom_SOURCES = am_map.c d_items.c d_main.c d_net.c doomstat.c \
 	p_plats.c p_pspr.c p_saveg.c p_setup.c p_sight.c p_spec.c p_switch.c \
 	p_telept.c p_tick.c p_user.c r_bsp.c r_data.c r_draw.c r_main.c r_plane.c \
 	r_segs.c r_sky.c r_things.c sounds.c s_sound.c st_lib.c st_stuff.c \
-	tables.c v_video.c wi_stuff.c w_wad.c z_zone.c i_audio.c i_music.c \
-	i_net_unix.c i_net_sting.c i_qmus2mid.c i_rgb2yuv.c i_cdmus.c \
+	tables.c v_video.c wi_stuff.c w_wad.c z_zone.c i_audio.c i_music.c i_qmus2mid.c \
+	i_net_unix.c i_net_sting.c i_rgb2yuv.c i_cdmus.c \
+    i_music_sdl.c i_music_opl.c i_music_midi.c mus2mid.c memio.c opl.c md_midi.c  \
 	m_fixed_020.S m_fixed_060.S
 
 EXTRA_DIST = $(header_files)

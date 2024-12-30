@@ -2,6 +2,13 @@
 *                     Changes done to Doom sources                      *
 \***********************************************************************/
 
+-------------------------------- 0.61 -----------------------------------
+
+- MIDI music
+- Adlib music on ISA cards (use -adlib on commandline)
+- Dramatic performance increase on NOVA due to later SDL version
+- Fixed -devparm FPS display
+
 -------------------------------- 0.60 -----------------------------------
 
 - D_ProcessEvents: Cache result of check for store demo on commercial version.

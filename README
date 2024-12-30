@@ -1,5 +1,4 @@
-* PmDoom
-
+* PmDoom 0.61
 
 Sourcecode: https://github.com/agranlund/pmdoom
 Based on pmdoom-0.60 by Patrice Mandin <patmandin@gmail.com>
@@ -51,7 +50,10 @@ tnt.wad		Doom 2 Tnt pack, commercial
 	'-net <num> <host2> [<host3> <host4>]' to enable networked game.
 		<num> is player number (1-4).
 		<host<n>> are other machine IP numbers on the network.
-	'-audio off' to switch off audio.
+	'-audio off' to switch off all audio.
+    '-sound off' to switch off sound
+    '-music off' to switch off music.
+    '-adlib' for OPL music instead of MIDI
 	'-flat' to switch off texturing on floors/ceilings.
 	'-mem <n>' to change memory allocated to game in KB (8192 is default = 8MB).
 	'-iwad /path/to/filename.wad' if game data file is not in current

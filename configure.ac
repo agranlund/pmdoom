@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(pmdoom, 0.60, patmandin@gmail.com)
+AC_INIT(pmdoom, 0.61, patmandin@gmail.com)
 AC_CONFIG_SRCDIR([src/i_main.c])
 AC_CONFIG_HEADER([config.h])
 AC_CONFIG_AUX_DIR([autotools])

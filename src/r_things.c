@@ -205,7 +205,7 @@ void R_InitSpriteDefs (char** namelist)
 		/* namelist[i] could be an odd pointer */
 		//intname = *(int *)namelist[i];
 		{
-			byte *tmp = namelist[i];
+			byte *tmp = (byte*) namelist[i];
 
 #if SDL_BYTEORDER == SDL_LIL_ENDIAN
 			intname = tmp[0];

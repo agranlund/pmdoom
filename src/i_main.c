@@ -38,6 +38,12 @@ main
     myargc = argc; 
     myargv = argv; 
 
+#if 0
+    Fforce(1, -2);
+#endif
+
+    printf("\033E");    // clear-home
+
 	printf(PACKAGE_STRING " compiled on " __DATE__ "\n");
 
     D_DoomMain (); 

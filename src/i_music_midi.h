@@ -17,32 +17,19 @@
 //
 //-----------------------------------------------------------------------------
 
-#ifndef __I_AUDIO__
-#define __I_AUDIO__
+#ifndef __I_MUSIC_MIDI__
+#define __I_MUSIC_MIDI__
 
-// Init at program start...
-void I_InitAudio();
-
-// ... update sound buffer and audio device at runtime...
-void I_UpdateAudio(void *unused, Uint8 *stream, int len);
-
-// ... shut down and relase at program termination.
-void I_ShutdownAudio(void);
-
-typedef struct {
-	boolean	music_enabled;
-	boolean	sound_enabled;
-
-    boolean pcm_available;
-	boolean convert;
-	SDL_AudioSpec	desired;
-	SDL_AudioSpec	obtained;
-	SDL_AudioCVT	audioCvt;
-} sysaudio_t;
-
-extern sysaudio_t sysaudio;
-
-// Needed for calling the actual sound output.
-#define NUM_CHANNELS		8
+void I_UpdateMusic_MIDI(void *unused, Uint8 *stream, int len);
+int  I_InitMusic_MIDI(void);
+void I_ShutdownMusic_MIDI(void);
+void I_SetMusicVolume_MIDI(int volume);
+void I_PauseSong_MIDI(int handle);
+void I_ResumeSong_MIDI(int handle);
+int  I_RegisterSong_MIDI(void *data, int length);
+void I_PlaySong_MIDI(int handle, int looping );
+void I_StopSong_MIDI(int handle);
+void I_UnRegisterSong_MIDI(int handle);
+int  I_QrySongPlaying_MIDI(int handle);
 
 #endif

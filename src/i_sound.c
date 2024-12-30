@@ -108,7 +108,7 @@ I_LoadSfx
     char                name[20];
     int                 sfxlump;
     
-	if (!sysaudio.enabled)
+	if (!sysaudio.sound_enabled)
 		return NULL;
 
     // Get the sound data from the WAD, allocate lump
@@ -171,7 +171,7 @@ addsfx
 	int		rightvol;
 	int		leftvol;
 
-	if (!sysaudio.enabled)
+	if (!sysaudio.sound_enabled)
 		return -1;
 
 	// Chainsaw troubles.
@@ -305,7 +305,7 @@ void I_SetChannels()
 	int		i;
 	int		j;
 
-	if (!sysaudio.enabled)
+	if (!sysaudio.sound_enabled)
 		return;
 
 	// Okay, reset internal mixing channels to zero.
@@ -630,11 +630,16 @@ void I_ShutdownSound(void)
 	}
 }
 
-void I_InitSound(void)
+int I_InitSound(void)
 { 
-	tmpMixBuffLen = sysaudio.obtained.samples * 2 * sizeof(Sint32);
-	tmpMixBuffer = Z_Malloc(tmpMixBuffLen, PU_STATIC, 0);
-	if (sysaudio.convert) {
-		tmpMixBuffer2 = Z_Malloc(tmpMixBuffLen>>1, PU_STATIC, 0);
-	}
+    if (!sysaudio.pcm_available)
+        return false;
+
+    tmpMixBuffLen = sysaudio.obtained.samples * 2 * sizeof(Sint32);
+    tmpMixBuffer = Z_Malloc(tmpMixBuffLen, PU_STATIC, 0);
+    if (sysaudio.convert) {
+        tmpMixBuffer2 = Z_Malloc(tmpMixBuffLen>>1, PU_STATIC, 0);
+    }
+    
+    return true;
 }

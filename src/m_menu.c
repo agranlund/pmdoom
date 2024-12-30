@@ -1715,37 +1715,39 @@ void M_Drawer (void)
     // Horiz. & Vertically center string and print it.
     if (messageToPrint)
     {
-	start = 0;
-	y = (SCREENHEIGHT - M_StringHeight(messageString))/2;
-	while(*(messageString+start))
-	{
-	    for (i = 0;i < strlen(messageString+start);i++)
-		if (*(messageString+start+i) == '\n')
-		{
-		    memset(string,0,40);
-		    strncpy(string,messageString+start,i);
-		    start += i+1;
-		    break;
-		}
-				
-	    if (i == strlen(messageString+start))
-	    {
-		strcpy(string,messageString+start);
-		start += i;
-	    }
-				
-	    x = (SCREENWIDTH - M_StringWidth(string))/2;
-	    M_WriteText(x,y,string);
-	    y += SHORT(hu_font[0]->height);
-	}
-	return;
+        start = 0;
+        y = (SCREENHEIGHT - M_StringHeight(messageString))/2;
+        while(*(messageString+start))
+        {
+            for (i = 0;i < strlen(messageString+start);i++)
+            if (*(messageString+start+i) == '\n')
+            {
+                memset(string,0,40);
+                strncpy(string,messageString+start,i);
+                start += i+1;
+                break;
+            }
+                    
+            if (i == strlen(messageString+start))
+            {
+            strcpy(string,messageString+start);
+            start += i;
+            }
+                    
+            x = (SCREENWIDTH - M_StringWidth(string))/2;
+            M_WriteText(x,y,string);
+            y += SHORT(hu_font[0]->height);
+        }
+	    return;
     }
 
-    if (!menuactive)
-	return;
+    if (!menuactive) {
+    	return;
+    }
 
-    if (currentMenu->routine)
-	currentMenu->routine();         // call Draw routine
+    if (currentMenu->routine) {
+	    currentMenu->routine();         // call Draw routine
+    }
     
 	// DRAW MENU
 	x = currentMenu->x;

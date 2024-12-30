@@ -10,3 +10,5 @@ stamp-h1
 doom.gtp
 doom/*
 doom.zip
+autom4te.cache/*
+autotools/*

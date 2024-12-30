@@ -93,7 +93,7 @@ byte* I_ZoneBase (int*	size)
 		sysgame.zone = (void *)Malloc(*size);
 		maximal_heap_size = Malloc(-1);
 	}
-	printf(" (%d Kbytes left for audio/video subsystem)\n", maximal_heap_size>>10);
+	printf(" (%ld Kbytes left for audio/video subsystem)\n", maximal_heap_size>>10);
 #else
 	sysgame.zone = malloc (*size);
 #endif
@@ -131,9 +131,10 @@ void I_Init (void)
 	}
 	atexit(SDL_Quit);
 
-	if (sysaudio.enabled) {
-		if (SDL_InitSubSystem(SDL_INIT_AUDIO)<0) {
-			sysaudio.enabled = false;
+    sysaudio.pcm_available = true;
+    if (sysaudio.sound_enabled || sysaudio.music_enabled) {
+		if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+			sysaudio.pcm_available = false;
 		}
 	}
 

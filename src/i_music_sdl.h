@@ -13,45 +13,24 @@
 // for more details.
 //
 // DESCRIPTION:
-//    
+//	System interface, sound.
+//
 //-----------------------------------------------------------------------------
 
-#ifndef __M_MISC__
-#define __M_MISC__
+#ifndef __I_MUSIC_SDL__
+#define __I_MUSIC_SDL__
 
-#include "doomtype.h"
-//
-// MISC
-//
-
-
-
-boolean
-M_WriteFile
-( char const*	name,
-  void*		source,
-  int		length );
-
-int
-M_ReadFile
-( char const*	name,
-  byte**	buffer );
-
-void M_ScreenShot (void);
-
-void M_LoadDefaults (void);
-
-void M_SaveDefaults (void);
-
-int M_remove
-( const char *name);
-
-int
-M_DrawText
-( int		x,
-  int		y,
-  boolean	direct,
-  char*		string );
+void I_UpdateMusic_SDL(void *unused, Uint8 *stream, int len);
+int  I_InitMusic_SDL(void);
+void I_ShutdownMusic_SDL(void);
+void I_SetMusicVolume_SDL(int volume);
+void I_PauseSong_SDL(int handle);
+void I_ResumeSong_SDL(int handle);
+int  I_RegisterSong_SDL(void *data, int length);
+void I_PlaySong_SDL(int handle, int looping);
+void I_StopSong_SDL(int handle);
+void I_UnRegisterSong_SDL(int handle);
+int  I_QrySongPlaying_SDL(int handle);
 
 
 #endif

@@ -80,14 +80,15 @@ M_DrawText
 		w = SHORT (hu_font[c]->width);
 		if (x+w > SCREENWIDTH)
 			break;
-		if (direct)
+		if (direct) {
 			V_DrawPatchDirect(x, y, 0, hu_font[c]);
-		else
+        } else {
 			V_DrawPatch(
 				(x*sysvideo.width)/SCREENWIDTH,
 				(y*sysvideo.height)/SCREENHEIGHT,
 				0, hu_font[c]);
-			x+=w;
+        }
+		x+=w;
 	}
 
 	return x;
@@ -156,6 +157,10 @@ M_ReadFile
 	return length;
 }
 
+int M_remove(const char *path)
+{
+    return remove(path);
+}
 
 //
 // DEFAULTS
@@ -201,9 +206,7 @@ extern int	showMessages;
 // machine-independent sound params
 extern	int	numChannels;
 
-extern char*	chat_macros[];
-
-
+extern char* chat_macros[];
 
 typedef struct
 {
@@ -254,6 +257,7 @@ default_t	defaults[] =
 
     {"usegamma",&usegamma, 0},
 
+/* doesn't compile with gcc13
     {"chatmacro0", (int *) &chat_macros[0], (int) HUSTR_CHATMACRO0 },
     {"chatmacro1", (int *) &chat_macros[1], (int) HUSTR_CHATMACRO1 },
     {"chatmacro2", (int *) &chat_macros[2], (int) HUSTR_CHATMACRO2 },
@@ -264,7 +268,7 @@ default_t	defaults[] =
     {"chatmacro7", (int *) &chat_macros[7], (int) HUSTR_CHATMACRO7 },
     {"chatmacro8", (int *) &chat_macros[8], (int) HUSTR_CHATMACRO8 },
     {"chatmacro9", (int *) &chat_macros[9], (int) HUSTR_CHATMACRO9 }
-
+*/
 };
 
 int	numdefaults;

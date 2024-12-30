@@ -27,7 +27,7 @@
 
 
 // Init at program start...
-void I_InitSound();
+int I_InitSound();
 
 // ... update sound buffer and audio device at runtime...
 void I_UpdateSound(void *unused, Uint8 *stream, int len);
