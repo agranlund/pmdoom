@@ -10,8 +10,13 @@ You need the PC version of Doom (shareware or registered) or Doom 2.
 
 * Building:
  - Get, make and install SDL1.2: https://github.com/libsdl-org/SDL-1.2
- - ./configure --host=m68k-atari-mint --prefix=/opt/cross-mint/m68k-atari-mint CFLAGS="-O3 -m68020-60 -msoft-float"
+ - ./autogen
+ - ./configure --host=m68k-atari-mint --prefix=/opt/cross-mint/m68k-atari-mint --with-sdl-prefix=/opt/cross-mint/m68k-atari-mint CFLAGS="-O3 -m68020-60 -msoft-float"
  - make
+
+You may want to additionally:
+- m68k-atari-mint-strip src/doom
+- cp src/doom doom.gtp
 
 
 * Controls:
