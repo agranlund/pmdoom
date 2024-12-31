@@ -135,7 +135,7 @@ static void InstallTimer() {
     for (int i = 0; i < nvbls; i++) {
         if (vblqueue[i] == 0) {
             vblqueue[i] = (unsigned long) &TimerCallback;
-            return;
+            break;
         }
     }
     RestoreInterrupts(sr);
@@ -149,7 +149,7 @@ static void UninstallTimer() {
     for (int i = 0; i < nvbls; i++) {
         if (vblqueue[i] == (unsigned long) &TimerCallback) {
             vblqueue[i] = 0;
-            return;
+            break;
         }
     }
     RestoreInterrupts(sr);
