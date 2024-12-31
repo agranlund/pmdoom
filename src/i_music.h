@@ -47,6 +47,4 @@ void I_UnRegisterSong(int handle);
 // Is the song playing?
 int I_QrySongPlaying(int handle);
 
-void I_ExportMusic(void);
-
 #endif

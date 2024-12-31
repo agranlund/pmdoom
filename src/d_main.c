@@ -1235,14 +1235,6 @@ void D_DoomMain (void)
 	autostart = true;
     }
 	
-    p = M_CheckParm ("-musexport");
-    if (p)
-    {
-	/* Export MUS files */
-	I_ExportMusic();
-	I_Quit();
-    }
-
     p = M_CheckParm ("-playdemo");
     if (p && p < myargc-1)
     {

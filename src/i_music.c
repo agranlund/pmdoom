@@ -34,7 +34,6 @@
 #include "i_music_sdl.h"
 #include "i_music_opl.h"
 #include "i_music_midi.h"
-#include "i_qmus2mid.h"
 #include "sounds.h"
 #include "w_wad.h"
 
@@ -189,49 +188,4 @@ int I_QrySongPlaying(int handle)
         return drv.I_QrySongPlaying(handle);
     }
     return false;
-}
-
-/* Export MUS files as MIDI */
-void I_ExportMusic(void)
-{
-	int i, lumpnum, mus_length, mus_from, mus_to;
-	char namebuf[9], dstname[16];
-	void *mus_data;
-	SDL_RWops *src, *dst;
-
-	/* Doom 1 */
-	mus_from = mus_e1m1;
-	mus_to = mus_introa;
-	if (gamemode == commercial) {
-		/* Doom 2 */
-		mus_from = mus_runnin;
-		mus_to = mus_dm2int;
-	}
-
-	for (i=mus_from; i<=mus_to; i++) {
-		sprintf(namebuf, "d_%s", S_music[i].name);
-		sprintf(dstname, "%s.mid", namebuf);
-		printf("Exporting %s to %s ... ", namebuf, dstname);
-
-		lumpnum = W_GetNumForName(namebuf);
-		mus_data = (void *) W_CacheLumpNum(lumpnum, PU_MUSIC);
-		mus_length = W_LumpLength(lumpnum);
-
-		src = SDL_RWFromMem(mus_data, mus_length);
-		mus_length = qmus2mid(mus_data, mus_length, src, 1,0,0,0);
-		if (mus_length<0) {
-			printf("failed\n");
-		} else {
-			dst = SDL_RWFromFile(dstname, "w");
-			if (!dst) {
-				printf("failed\n");
-			} else {
-				SDL_RWwrite(dst, mus_data, mus_length, 1);
-				printf("ok\n");
-			}
-		}
-		SDL_FreeRW(src);
-
-		Z_ChangeTag(mus_data, PU_CACHE);
-	}
 }
