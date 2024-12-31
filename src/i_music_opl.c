@@ -35,6 +35,7 @@
 #include "i_audio.h"
 #include "i_music.h"
 #include "i_music_opl.h"
+#include "i_music_midi.h"
 #include "sounds.h"
 #include "i_swap.h"
 #include "w_wad.h"
@@ -354,15 +355,8 @@ static unsigned int last_perc_count;
 // Configuration file variable, containing the port number for the adlib chip.
 static int opl_io_port = 0x388;
 static boolean opl_stereo_correct = false;
-static boolean music_initialized = false;
 static int start_music_volume;
 static int current_music_volume;
-static boolean song_looping = 0;
-static boolean song_paused = 0;
-static boolean song_playing = 0;
-static unsigned int currentmicros = 0;
-static MD_MIDIFile* midi = 0;
-static void* midibuf = 0;
 
 // Load instrument table from GENMIDI lump:
 static boolean LoadInstrumentTable(void)
@@ -1040,6 +1034,8 @@ static void PitchBendEvent(MD_midi_event *event)
     }
 }
 
+// --------------------------------------------------------------------------------
+
 static void midiEventHandler(MD_midi_event* event) {
 
     uint8_t type = event->data[0] & 0xf0;
@@ -1061,7 +1057,6 @@ static void midiEventHandler(MD_midi_event* event) {
             PitchBendEvent(event);
             break;
         default:
-            //printf(" unknown\n");
             break;
     }
 }
@@ -1090,55 +1085,12 @@ static void InitChannel(opl_channel_data_t *channel)
 }
 
 // --------------------------------------------------------------------------------
-static void PeriodicUpdate(unsigned int elapsed) {
-    if (midi && song_playing && !song_paused) {
-        currentmicros += elapsed;
-        MD_Update(midi, currentmicros);
-        if (MD_isEOF(midi)) {
-            if (song_looping) {
-                MD_Restart(midi);
-            } else {
-                song_playing = false;
-            }
-        }
-    }
-}
-
-static void TimerCallback() {
-    PeriodicUpdate(20 * 1000);
-}
-
-static void InstallTimer() {
-    unsigned long* vblqueue = (unsigned long*) *((unsigned long*)0x456);
-    unsigned long nvbls = *((unsigned long*)0x454);
-    for (int i = 0; i < nvbls; i++) {
-        if (vblqueue[i] == 0) {
-            vblqueue[i] = (unsigned long) &TimerCallback;
-            return;
-        }
-    }
-}
-
-static void UninstallTimer() {
-    /* todo: use real timer interrupt? */
-    unsigned long* vblqueue = (unsigned long*) *((unsigned long*)0x456);
-    unsigned long nvbls = *((unsigned long*)0x454);
-    for (int i = 0; i < nvbls; i++) {
-        if (vblqueue[i] == (unsigned long) &TimerCallback) {
-            vblqueue[i] = 0;
-            return;
-        }
-    }
-}
-
-// --------------------------------------------------------------------------------
 
 int I_InitMusic_OPL(void)
 { 
     opl_init_result_t chip_type;
     chip_type = OPL_Init(opl_io_port);
-    if (chip_type == OPL_INIT_NONE)
-    {
+    if (chip_type == OPL_INIT_NONE) {
         printf("Dude.  The Adlib isn't responding.\n");
         return false;
     }
@@ -1154,154 +1106,81 @@ int I_InitMusic_OPL(void)
     opl_stereo_correct = false;
     OPL_InitRegisters(opl_opl3mode);
 
-    if (!LoadInstrumentTable())
-    {
+    if (!LoadInstrumentTable()) {
         OPL_Shutdown();
         return false;
     }
 
     InitVoices();
 
-    Supexec(InstallTimer);
-    music_initialized = true;
-    return true;    
+    if (!I_InitMusic_MIDI()) {
+        OPL_Shutdown();
+        return false;
+    }
+
+    return true;
 }
 
 void I_ShutdownMusic_OPL(void) {
-    if (music_initialized)
-    {
-        I_StopSong_OPL(0);
-        music_initialized = false;
-        Supexec(UninstallTimer);
-    }
+    I_ShutdownMusic_MIDI();
 }
 
 void I_PlaySong_OPL(int handle, int looping) {
-    if (!music_initialized || (midi == NULL))
-        return;
 
     I_StopSong_OPL(handle);
     for (int i = 0; i < MIDI_CHANNELS_PER_TRACK; ++i) {
         InitChannel(&channels[i]);
     }
-    MD_Restart(midi);
-    midi->_looping = looping;
-    currentmicros = 0;
+
     start_music_volume = current_music_volume;
-    song_looping = looping;
-    song_paused = false;
-    song_playing = true;
+    I_PlaySong_MIDI(handle, looping);
 }
 
 void I_SetMusicVolume_OPL(int volume)
 {
-    if (current_music_volume == volume) {
-        return;
+    if (current_music_volume != volume) {
+        current_music_volume = volume;
+        for (unsigned int i = 0; i < MIDI_CHANNELS_PER_TRACK; ++i) {
+            if (i == 15) {
+                SetChannelVolume(&channels[i], volume, false);
+            } else {
+                SetChannelVolume(&channels[i], channels[i].volume_base, false);
+            }
+        }    
     }
-    current_music_volume = volume;
-    for (unsigned int i = 0; i < MIDI_CHANNELS_PER_TRACK; ++i) {
-        if (i == 15) {
-            SetChannelVolume(&channels[i], volume, false);
-        } else {
-            SetChannelVolume(&channels[i], channels[i].volume_base, false);
-        }
-    }    
 }
 
 void I_PauseSong_OPL(int handle) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    song_paused = true;
-    MD_Pause(midi, true);
+    I_PauseSong_MIDI(handle);
 }
 
 void I_ResumeSong_OPL(int handle) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    MD_Pause(midi, false);
-    song_paused = false;
+    I_ResumeSong_MIDI(handle);
 }
 
 void I_StopSong_OPL(int handle) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    song_paused = true;
-    song_playing = false;
-    MD_Pause(midi, true);
+    I_StopSong_MIDI(handle);
 }
 
 int I_RegisterSong_OPL(void* data, int len) {
-    if (!music_initialized)
-        return 0;
-
-    if (midi) {
-        I_UnRegisterSong_OPL(-1);
-        midi = NULL;
-    }
-
-    if ((len > 4) && (len < MAXMIDLENGTH) && !memcmp(data, "MThd", 4)) {
-        /* midi data */
-        midibuf = Z_Malloc(len, PU_STATIC, data);
-        if (midibuf) {
-            memcpy(midibuf, data, len);
-            midi = MD_OpenBuffer(midibuf);
-        }
-    } else {
-        /* mus data */
-        MEMFILE *instream = mem_fopen_read(data, len);
-        MEMFILE* outstream = mem_fopen_write();
-        if (instream && outstream) {
-            if (mus2mid(instream, outstream) == 0)
-            {
-                void *outbuf; size_t outbuf_len;
-                mem_get_buf(outstream, &outbuf, &outbuf_len);
-                if (outbuf_len > 4) {
-                    midibuf = Z_Malloc(outbuf_len, PU_STATIC, data);
-                    if (midibuf) {
-                        memcpy(midibuf, outbuf, outbuf_len);
-                        midi = MD_OpenBuffer(midibuf);
-                    }
-                }
-            }
-            mem_fclose(instream);
-            mem_fclose(outstream);
-        }
-    }
-
-    if (midi) {
+    MD_MIDIFile* midi = (MD_MIDIFile*) I_RegisterSong_MIDI(data, len);
+    if (midi) {    
         midi->_midiHandler = midiEventHandler;
         midi->_sysexHandler = midiSysexHandler;
         midi->_metaHandler = midiMetaHandler;
-        return 1;
     }
-
-    return 0;
+    return (int) midi;
 }
 
 void I_UnRegisterSong_OPL(int handle) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    song_paused = true;
-    song_playing = false;
-    MD_Close(midi);
-    midi = NULL;
-    if (midibuf) {
-        Z_Free(midibuf);
-        midibuf = 0;
-    }
+    I_UnRegisterSong_MIDI(handle);
 }
 
 int I_QrySongPlaying_OPL(int handle) {
-    if (!music_initialized)
-        return false;
-    return (midi != NULL) && song_playing;
+    return I_QrySongPlaying_MIDI(handle);
 }
 
 void I_UpdateMusic_OPL(void *unused, uint8_t *stream, int len) {
-    (void) unused; (void) stream; (void) len;
+    I_UpdateMusic_MIDI(unused, stream, len);
 }
 

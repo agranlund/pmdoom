@@ -35,8 +35,6 @@
 
 #define MAXMIDLENGTH (96 * 1024)
 
-static boolean music_initialized = false;
-static int start_music_volume;
 static int current_music_volume;
 
 // Track data for playing tracks:
@@ -95,10 +93,42 @@ static void PeriodicUpdate(unsigned int elapsed) {
 }
 
 static void TimerCallback() {
-    PeriodicUpdate(20 * 1000);
+
+    static uint32_t last200hz = 0;
+    // assume 20ms per frame (50hz)
+    uint32_t microseconds = 20 * 1000UL;
+    // get more accurate reading from 200hz timer if possible
+    uint32_t this200hz = *((volatile uint32_t*)0x4ba);
+    if (last200hz && (this200hz > last200hz)) {
+        // 5ms per 200hz tick
+        microseconds = (this200hz - last200hz) * 5000UL;
+    }
+    PeriodicUpdate(microseconds);
+    last200hz = this200hz;
+}
+
+static uint16_t DisableInterrupts() {
+    register uint16_t ret __asm__ ("d0");
+    __asm__ volatile (
+        "   move.w  sr,%0\n\t"
+        "   or.w    #0x0700,sr\n\t"
+        : "=r"(ret) : : __CLOBBER_RETURN("d0") "cc" );
+    return ret;
+}
+
+static void RestoreInterrupts(uint16_t oldsr) {
+    __asm__ volatile (
+        "   move.w  sr,d0\n\t"
+        "   and.w   #0xF0FF,d0\n\t"
+        "   and.w   #0x0F00,%0\n\t"
+        "   or.w    %0,d0\n\t"
+        "   move.w  d0,sr\n\t"
+        : : "d"(oldsr) : "d0", "cc" );
 }
 
 static void InstallTimer() {
+    /* todo: use real timer interrupt */
+    uint16_t sr = DisableInterrupts();
     biosMidiOut = (int32_t(*)(uint32_t)) *(volatile uint32_t*)(0x57e + (3 * 4));
     unsigned long* vblqueue = (unsigned long*) *((unsigned long*)0x456);
     unsigned long nvbls = *((unsigned long*)0x454);
@@ -108,10 +138,12 @@ static void InstallTimer() {
             return;
         }
     }
+    RestoreInterrupts(sr);
 }
 
 static void UninstallTimer() {
     /* todo: use real timer interrupt */
+    uint16_t sr = DisableInterrupts();
     unsigned long* vblqueue = (unsigned long*) *((unsigned long*)0x456);
     unsigned long nvbls = *((unsigned long*)0x454);
     for (int i = 0; i < nvbls; i++) {
@@ -120,37 +152,31 @@ static void UninstallTimer() {
             return;
         }
     }
+    RestoreInterrupts(sr);
 }
 
 // --------------------------------------------------------------------------------
 
 int I_InitMusic_MIDI(void) { 
     Supexec(InstallTimer);
-    music_initialized = true;
     return true;    
 }
 
 void I_ShutdownMusic_MIDI(void) {
-    if (music_initialized)
-    {
-        I_StopSong_MIDI(0);
-        music_initialized = false;
-        Supexec(UninstallTimer);
-    }
+    I_StopSong_MIDI(0);
+    Supexec(UninstallTimer);
 }
 
 void I_PlaySong_MIDI(int handle, int looping) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    I_StopSong_MIDI(handle);
-    MD_Restart(midi);
-    midi->_looping = looping;
-    currentmicros = 0;
-    start_music_volume = current_music_volume;
-    song_looping = looping;
-    song_paused = false;
-    song_playing = true;
+    if (midi) {
+        I_StopSong_MIDI(handle);
+        MD_Restart(midi);
+        midi->_looping = looping;
+        currentmicros = 0;
+        song_looping = looping;
+        song_paused = false;
+        song_playing = true;
+    }
 }
 
 void I_SetMusicVolume_MIDI(int volume) {
@@ -158,33 +184,28 @@ void I_SetMusicVolume_MIDI(int volume) {
 }
 
 void I_PauseSong_MIDI(int handle) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    song_paused = true;
-    MD_Pause(midi, true);
+    if (midi) {
+        song_paused = true;
+        MD_Pause(midi, true);
+    }
 }
 
 void I_ResumeSong_MIDI(int handle) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    MD_Pause(midi, false);
-    song_paused = false;
+    if (midi) {
+        MD_Pause(midi, false);
+        song_paused = false;
+    }
 }
 
 void I_StopSong_MIDI(int handle) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    song_paused = true;
-    song_playing = false;
-    MD_Pause(midi, true);
+    if (midi) {
+        song_paused = true;
+        song_playing = false;
+        MD_Pause(midi, true);
+    }
 }
 
 int I_RegisterSong_MIDI(void* data, int len) {
-    if (!music_initialized)
-        return 0;
 
     if (midi) {
         I_UnRegisterSong_MIDI(-1);
@@ -224,29 +245,25 @@ int I_RegisterSong_MIDI(void* data, int len) {
         midi->_midiHandler = midiEventHandler;
         midi->_sysexHandler = midiSysexHandler;
         midi->_metaHandler = midiMetaHandler;
-        return 1;
     }
 
-    return 0;
+    return (int) midi;
 }
 
 void I_UnRegisterSong_MIDI(int handle) {
-    if (!music_initialized || (midi == NULL))
-        return;
-
-    song_paused = true;
-    song_playing = false;
-    MD_Close(midi);
-    midi = NULL;
-    if (midibuf) {
-        Z_Free(midibuf);
-        midibuf = 0;
+    if (midi) {
+        song_paused = true;
+        song_playing = false;
+        MD_Close(midi);
+        midi = NULL;
+        if (midibuf) {
+            Z_Free(midibuf);
+            midibuf = 0;
+        }
     }
 }
 
 int I_QrySongPlaying_MIDI(int handle) {
-    if (!music_initialized)
-        return false;
     return (midi != NULL) && song_playing;
 }
 

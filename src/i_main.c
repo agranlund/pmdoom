@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include <SDL.h>
+#include <mint/osbind.h>
 
 #include "doomdef.h"
 
