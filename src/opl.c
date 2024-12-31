@@ -26,8 +26,8 @@
 #include "opl.h"
 
 static unsigned int opl_base = 0x388;       /* default Adlib port number */
-static unsigned int opl_delay_idx = 4;      /* default Adlib index write delay */
-static unsigned int opl_delay_reg = 24;     /* default Adlib data write delay */
+static unsigned int opl_delay_idx = 5;      /* default Adlib index write delay */
+static unsigned int opl_delay_reg = 35;     /* default Adlib data write delay */
 
 
 void OPL_WritePort(opl_port_t port, unsigned int value) {
@@ -50,19 +50,18 @@ opl_init_result_t OPL_Init(unsigned int port_base)
     }
 
     opl_base = port_base;
-    opl_init_result_t result1 = OPL_Detect();
-    opl_init_result_t result2 = OPL_Detect();
-    if (result1 == OPL_INIT_NONE || result2 == OPL_INIT_NONE) {
+    opl_init_result_t result = OPL_Detect();
+    if (result == OPL_INIT_NONE) {
         return OPL_INIT_NONE;
     }
 
     /* opl3 needs almost no write delay */
-    if (result2 == OPL_INIT_OPL3) {
+    if (result == OPL_INIT_OPL3) {
         opl_delay_idx = 1;
         opl_delay_reg = 1;
     }
 
-    return result2;
+    return result;
 }
 
 void OPL_Shutdown(void)
@@ -103,8 +102,7 @@ opl_init_result_t OPL_Detect(void)
     // Start timer 1
     OPL_WriteRegister(OPL_REG_TIMER_CTRL, 0x21);
 
-    OPL_Delay(201);
-    OPL_Delay(999);
+    OPL_Delay(2000);
 
     // Read status
     int result2 = OPL_ReadStatus();
@@ -114,14 +112,13 @@ opl_init_result_t OPL_Detect(void)
     // Enable interrupts:
     OPL_WriteRegister(OPL_REG_TIMER_CTRL, 0x80);
 
-    if ((result1 & 0xe0) == 0x00 && (result2 & 0xe0) == 0xc0) {
+    if (((result1 & 0xe0) == 0x00) && ((result2 & 0xe0) == 0xc0)) {
         if ((result2 & 0x06) == 0x00) {
             return OPL_INIT_OPL3;
         }
         return OPL_INIT_OPL2;
-    } else {
-        return OPL_INIT_NONE;
     }
+    return OPL_INIT_NONE;
 }
 
 // Initialize registers on startup
