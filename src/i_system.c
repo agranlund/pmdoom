@@ -131,13 +131,6 @@ void I_Init (void)
 	}
 	atexit(SDL_Quit);
 
-    sysaudio.pcm_available = true;
-    if (sysaudio.sound_enabled || sysaudio.music_enabled) {
-		if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
-			sysaudio.pcm_available = false;
-		}
-	}
-
 #ifdef __MINT__
 	if (sysnetwork.layer==NETWORK_STING) {
 		I_InitNetwork = I_InitNetwork_sting;

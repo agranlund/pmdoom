@@ -16,7 +16,7 @@ You need the PC version of Doom (shareware or registered) or Doom 2.
 
 You may want to additionally:
 - m68k-atari-mint-strip src/doom
-- cp src/doom doom.gtp
+- cp src/doom doom.prg
 
 
 * Controls:
@@ -57,8 +57,12 @@ tnt.wad		Doom 2 Tnt pack, commercial
 		<host<n>> are other machine IP numbers on the network.
 	'-audio off' to switch off all audio.
     '-sound off' to switch off sound
+    '-sound sb' to force soundblaster sound driver
+    '-sound sdl' to force sdl sound driver
     '-music off' to switch off music.
-    '-adlib' for OPL music instead of MIDI
+    '-music midi' to force midi music driver
+    '-music adlib' to force adlib music driver
+    '-music sdl' to force sdl music driver
 	'-flat' to switch off texturing on floors/ceilings.
 	'-mem <n>' to change memory allocated to game in KB (8192 is default = 8MB).
 	'-iwad /path/to/filename.wad' if game data file is not in current

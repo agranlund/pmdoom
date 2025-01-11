@@ -347,9 +347,7 @@ S_StartSoundAtVolume
 	// cache data if necessary
 	if (!sfx->data) {
 		int length;
-
 		sfx->data = I_LoadSfx(sfx->name, &length);
-		//sfx->data = (void *) W_CacheLumpNum(sfx->lumpnum, PU_MUSIC);
 		sfx->length = length;
 		sfx->usefulness=0;
 	}

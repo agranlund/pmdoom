@@ -39,60 +39,27 @@
 
 #include "doomdef.h"
 
+#include "i_sound_sdl.h"
+#include "i_sound_sb.h"
+
 extern sysaudio_t sysaudio;
 
-// The number of internal mixing channels,
-//  the samples calculated for each mixing step,
-//  the size of the 16bit, 2 hardware channel (stereo)
-//  mixing buffer, and the samplerate of the raw data.
+typedef struct 
+{
+    void (*I_UpdateSound)(void *unused, Uint8 *stream, int len);
+    int  (*I_InitSound)(void);
+    void (*I_ShutdownSound)(void);
+} sound_drv_t;
 
-typedef struct {
-	// The channel data pointers, start and end.
-	unsigned char *startp, *end;
+static sound_drv_t drv;
 
-	Uint32 length, position;
-
-	// The channel step amount...
-	Uint32 step;
-	// ... and a 0.16 bit remainder of last step.
-	Uint32 stepremainder;	/* or position.frac for m68k asm rout */
-
-	// Time/gametic that the channel started playing,
-	//  used to determine oldest, which automatically
-	//  has lowest priority.
-	// In case number of active sounds exceeds
-	//  available channels.
-	int start;
-
-	// The sound in channel handles,
-	//  determined on registration,
-	//  might be used to unregister/stop/modify,
-	//  currently unused.
-	int 		handle;
-
-	// SFX id of the playing sound effect.
-	// Used to catch duplicates (like chainsaw).
-	int		id;			
-
-	// Hardware left and right channel volume lookup.
-	int*		leftvol_lookup;
-	int*		rightvol_lookup;
-
-} channel_t;
-
-static channel_t	channels[NUM_CHANNELS];
-
+i_sound_channel_t i_sound_channels[NUM_CHANNELS];
 
 // Pitch to stepping lookup, unused.
 static int		steptable[256];
 
 // Volume lookups.
 static int *vol_lookup=NULL;
-
-static Sint32 *tmpMixBuffer = NULL;	/* 32bit mixing buffer for n voices */
-static Sint16 *tmpMixBuffer2 = NULL;	/* 16bit clipped mixing buffer for conv */
-static int tmpMixBuffLen = 0;
-static SDL_bool quit = SDL_FALSE;
 
 //
 // This function loads the sound data from the WAD lump,
@@ -131,6 +98,7 @@ I_LoadSfx
       sfxlump = W_GetNumForName(name);
     
     size = W_LumpLength( sfxlump );
+
 
     // Debug.
     // fprintf( stderr, "." );
@@ -181,9 +149,9 @@ addsfx
 		// Loop all channels, check.
 		for (i=0 ; i<NUM_CHANNELS ; i++) {
 			// Active, and using the same SFX?
-			if ( (channels[i].startp) && (channels[i].id == sfxid) ) {
+			if ( (i_sound_channels[i].startp) && (i_sound_channels[i].id == sfxid) ) {
 				// Reset.
-				channels[i].startp = NULL;
+				i_sound_channels[i].startp = NULL;
 				// We are sure that iff,
 				//  there will only be one.
 				break;
@@ -192,10 +160,10 @@ addsfx
 	}
 
 	// Loop all channels to find oldest SFX.
-	for (i=0; (i<NUM_CHANNELS) && (channels[i].startp); i++) {
-		if (channels[i].start < oldest) {
+	for (i=0; (i<NUM_CHANNELS) && (i_sound_channels[i].startp); i++) {
+		if (i_sound_channels[i].start < oldest) {
 			oldestnum = i;
-			oldest = channels[i].start;
+			oldest = i_sound_channels[i].start;
 		}
 	}
 
@@ -209,19 +177,20 @@ addsfx
 		slot = i;
 
 	/* Decrease usefulness of sample on channel 'slot' */
-	if (channels[slot].startp) {
-		S_sfx[channels[slot].id].usefulness--;
+	if (i_sound_channels[slot].startp) {
+		S_sfx[i_sound_channels[slot].id].usefulness--;
 	}
 
 	// Okay, in the less recent channel,
 	//  we will handle the new SFX.
 	// Set pointer to raw data.
-	channels[slot].startp = (unsigned char *) S_sfx[sfxid].data;
-	// Set pointer to end of raw data.
-	channels[slot].end = channels[slot].startp + S_sfx[sfxid].length;
+	i_sound_channels[slot].startp = (unsigned char *) S_sfx[sfxid].data;
 
-	channels[slot].position = 0;
-	channels[slot].length = S_sfx[sfxid].length;
+	// Set pointer to end of raw data.
+	i_sound_channels[slot].end = S_sfx[sfxid].data + S_sfx[sfxid].length;
+
+	i_sound_channels[slot].position = 0;
+	i_sound_channels[slot].length = S_sfx[sfxid].length;
 
 	// Reset current handle number, limited to 0..100.
 	if (!handlenums)
@@ -229,15 +198,15 @@ addsfx
 
 	// Assign current handle number.
 	// Preserved so sounds could be stopped (unused).
-	channels[slot].handle = rc = handlenums++;
+	i_sound_channels[slot].handle = rc = handlenums++;
 
 	// Set stepping???
 	// Kinda getting the impression this is never used.
-	channels[slot].step = step;
+	i_sound_channels[slot].step = step;
 	// ???
-	channels[slot].stepremainder = 0;
+	i_sound_channels[slot].stepremainder = 0;
 	// Should be gametic, I presume.
-	channels[slot].start = gametic;
+	i_sound_channels[slot].start = gametic;
 
 	// Separation, that is, orientation/stereo.
 	//  range is: 1 - 256
@@ -250,21 +219,25 @@ addsfx
 	seperation = seperation - 257;
 	rightvol = volume - ((volume*seperation*seperation) >> 16);	
 
+    if (leftvol < 0) leftvol = 0;
+    else if (leftvol > 127) leftvol = 127;
+    if (rightvol < 0) rightvol = 0;
+    else if (rightvol > 127) rightvol = 127;
+#if 0
 	// Sanity check, clamp volume.
 	if (rightvol < 0 || rightvol > 127)
 		I_Error("rightvol out of bounds");
 
 	if (leftvol < 0 || leftvol > 127)
 		I_Error("leftvol out of bounds");
+#endif
 
-	// Get the proper lookup table piece
-	//  for this volume level???
-	channels[slot].leftvol_lookup = &vol_lookup[leftvol*256];
-	channels[slot].rightvol_lookup = &vol_lookup[rightvol*256];
+	i_sound_channels[slot].leftvol_lookup = &vol_lookup[leftvol*256];
+	i_sound_channels[slot].rightvol_lookup = &vol_lookup[rightvol*256];
 
 	// Preserve sound SFX id,
 	//  e.g. for avoiding duplicates of chainsaw.
-	channels[slot].id = sfxid;
+	i_sound_channels[slot].id = sfxid;
 
 	// You tell me.
 	return rc;
@@ -272,12 +245,12 @@ addsfx
 
 void I_UpdateSounds(void)
 {
-	int i;
+    if (!sysaudio.sound_enabled) {
+        return;
+    }
 
-	for (i=0;i<NUM_CHANNELS;i++) {
-		int sfxid;
-
-		sfxid = channels[i].id;
+	for (int i=0;i<NUM_CHANNELS;i++) {
+		int sfxid = i_sound_channels[i].id;
 		if ((S_sfx[sfxid].usefulness <= 0) && S_sfx[sfxid].data) {
 		    Z_ChangeTag(S_sfx[sfxid].data - 8, PU_CACHE);
 			S_sfx[sfxid].usefulness = 0;
@@ -299,41 +272,31 @@ void I_UpdateSounds(void)
 //
 void I_SetChannels()
 {
-	// Init internal lookups (raw data, mixing buffer, channels).
-	// This function sets up internal lookups used during
-	//  the mixing process. 
-	int		i;
-	int		j;
+    if (!sysaudio.sound_enabled) {
+        return;
+    }
 
-	if (!sysaudio.sound_enabled)
-		return;
-
-	// Okay, reset internal mixing channels to zero.
-	for (i=0; i<NUM_CHANNELS; i++)
-	{
-		channels[i].startp = NULL;
-	}
+	for (int i=0; i<NUM_CHANNELS; i++) {
+		i_sound_channels[i].startp = NULL;
+    }
 
 	// This table provides step widths for pitch parameters.
 	// I fail to see that this is currently used.
-	for (i=-128 ; i<128 ; i++) {
-		int newstep;
-
-		newstep = (int)(pow(2.0, (i/64.0))*65536.0);
-		/* FIXME: are all samples 11025Hz ? */
+	for (int i=-128 ; i<128 ; i++) {
+		int newstep = (int)(pow(2.0, (i/64.0))*65536.0);
 		newstep = (newstep*11025)/sysaudio.obtained.freq;
 		steptable[i+128] = newstep;
 	}
-
 
 	// Generates volume lookup tables
 	//  which also turn the unsigned samples
 	//  into signed samples.
 	vol_lookup = Z_Malloc(128*256*sizeof(int), PU_STATIC, NULL);
-
-	for (i=0 ; i<128 ; i++)
-		for (j=0 ; j<256 ; j++)
+	for (int i=0 ; i<128 ; i++) {
+		for (int j=0 ; j<256 ; j++) {
 			vol_lookup[i*256+j] = (i*(j-128)*256)/127;
+        }
+    }
 }	
 
  
@@ -409,8 +372,6 @@ int I_SoundIsPlaying(int handle)
 }
 
 
-
-
 //
 // This function loops all active (internal) sound
 //  channels, retrieves a given number of samples
@@ -426,163 +387,8 @@ int I_SoundIsPlaying(int handle)
 //
 void I_UpdateSound(void *unused, Uint8 *stream, int len)
 {
-	int i, chan, srclen;
-	boolean mixToFinal = false;
-	Sint32 *source;
-	Sint16 *dest;
-
-	if (quit) {
-		return;
-	}
-
-	memset(tmpMixBuffer, 0, tmpMixBuffLen);
-	srclen = len;
-	if (sysaudio.convert) {
-		srclen = (int) (len / sysaudio.audioCvt.len_ratio);
-	}
-
-	/* Add each channel to tmp mix buffer */
-	for ( chan = 0; chan < NUM_CHANNELS; chan++ ) {
-		Uint8 *sample;
-		Uint32 position, stepremainder, step;
-		int *leftvol, *rightvol;
-		Sint32 maxlen;
-		SDL_bool end_of_sample;
-
-		// Check channel, if active.
-		if (!channels[ chan ].startp) {
-			continue;
-		}
-
-		source = tmpMixBuffer;
-		sample = channels[chan].startp;
-		position = channels[ chan ].position;
-		stepremainder = channels[chan].stepremainder;
-		step = channels[chan].step;
-		leftvol = channels[chan].leftvol_lookup;
-		rightvol = channels[chan].rightvol_lookup;
-
-		maxlen = FixedDiv(channels[chan].length-position, step);
-		end_of_sample = SDL_FALSE;
-		if ((srclen>>2) <= maxlen) {
-			maxlen = srclen>>2;
-		} else {
-			end_of_sample = SDL_TRUE;
-		}
-
-		{
-#if defined(__GNUC__) && defined(__m68k__)
-			Uint32	step_int = step>>16;
-			Uint32	step_frac = step<<16;
-#endif
-			for (i=0; i<maxlen; i++) {
-				unsigned int val;
-
-				// Get the raw data from the channel. 
-				val = sample[position];
-
-				// Add left and right part
-				//  for this channel (sound)
-				//  to the current data.
-				// Adjust volume accordingly.
-				*source++ += leftvol[val];
-				*source++ += rightvol[val];
-
-#if defined(__GNUC__) && defined(__m68k__)
-				__asm__ __volatile__ (
-						"addl	%3,%1\n"	\
-					"	addxl	%2,%0"	\
-				 	: /* output */
-						"=d"(position), "=d"(stepremainder)
-				 	: /* input */
-						"d"(step_int), "r"(step_frac), "d"(position), "d"(stepremainder)
-				 	: /* clobbered registers */
-				 		"cc"
-				);
-#else
-				// Increment index ???
-				stepremainder += step;
-
-				// MSB is next sample???
-				position += stepremainder >> 16;
-
-				// Limit to LSB???
-				stepremainder &= 65536-1;
-#endif
-			}
-		}
-
-		if (end_of_sample) {
-			channels[ chan ].startp = NULL;
-			S_sfx[channels[chan].id].usefulness--;
-		}
-		channels[ chan ].position = position;
-		channels[ chan ].stepremainder = stepremainder;
-	}
-
-	/* Now clip values for final buffer */
-	source = tmpMixBuffer;	
-	if (sysaudio.convert) {
-		dest = (Sint16 *) tmpMixBuffer2;
-	} else {
-		dest = (Sint16 *) stream;
-#ifdef ENABLE_SDLMIXER
-		mixToFinal = true;
-#endif
-	}
-
-	if (mixToFinal) {
-		for (i=0; i<srclen>>2; i++) {
-			Sint32 dl, dr;
-
-			dl = *source++ + dest[0];
-			dr = *source++ + dest[1];
-
-			if (dl > 0x7fff)
-				dl = 0x7fff;
-			else if (dl < -0x8000)
-				dl = -0x8000;
-
-			*dest++ = dl;
-
-			if (dr > 0x7fff)
-				dr = 0x7fff;
-			else if (dr < -0x8000)
-				dr = -0x8000;
-
-			*dest++ = dr;
-		}
-	} else {
-		for (i=0; i<srclen>>2; i++) {
-			Sint32 dl, dr;
-
-			dl = *source++;
-			dr = *source++;
-
-			if (dl > 0x7fff)
-				dl = 0x7fff;
-			else if (dl < -0x8000)
-				dl = -0x8000;
-
-			*dest++ = dl;
-
-			if (dr > 0x7fff)
-				dr = 0x7fff;
-			else if (dr < -0x8000)
-				dr = -0x8000;
-
-			*dest++ = dr;
-		}
-	}
-
-	/* Conversion if needed */
-	if (sysaudio.convert) {
-		sysaudio.audioCvt.buf = (Uint8 *) tmpMixBuffer2;
-		sysaudio.audioCvt.len = srclen;
-		SDL_ConvertAudio(&sysaudio.audioCvt);
-
-		SDL_MixAudio(stream, sysaudio.audioCvt.buf, len, SDL_MIX_MAXVOLUME);
-	}
+	if (sysaudio.sound_enabled)
+        drv.I_UpdateSound(unused, stream, len);
 }
 
 
@@ -604,42 +410,49 @@ I_UpdateSoundParams
 
 void I_ShutdownSound(void)
 {    
-	int i;
-	int done = 0;
-
-	quit = SDL_TRUE;
-
-	// Wait till all pending sounds are finished.
-	while ( !done ) {
-		for( i=0 ; i<8 && !(channels[i].startp) ; i++) {
-		}
-
-		// FIXME. No proper channel output.
-		//if (i==8)
-			done=1;
-	}
-
-	if (tmpMixBuffer) {
-		Z_Free(tmpMixBuffer);
-		tmpMixBuffer=NULL;
-	}
-
-	if (tmpMixBuffer2) {
-		Z_Free(tmpMixBuffer2);
-		tmpMixBuffer2=NULL;
-	}
+	if (sysaudio.sound_enabled) {
+        drv.I_ShutdownSound();
+    }
 }
 
-int I_InitSound(void)
-{ 
-    if (!sysaudio.pcm_available)
-        return false;
+#define SOUND_DRV_OFF   0
+#define SOUND_DRV_AUTO  (1<<0)
+#define SOUND_DRV_SDL   (1<<1)
+#define SOUND_DRV_SB    (1<<2)
 
-    tmpMixBuffLen = sysaudio.obtained.samples * 2 * sizeof(Sint32);
-    tmpMixBuffer = Z_Malloc(tmpMixBuffLen, PU_STATIC, 0);
-    if (sysaudio.convert) {
-        tmpMixBuffer2 = Z_Malloc(tmpMixBuffLen>>1, PU_STATIC, 0);
+int I_InitSound(void)
+{
+    sysaudio.sound_enabled = false;
+
+    uint16_t sound = SOUND_DRV_AUTO;
+    int p = M_CheckParm ("-sound");
+    if (p && (p<myargc-1)) {
+        if (strcmp(myargv[p+1],"sb")==0) {
+            sound = SOUND_DRV_SB;
+        }
+        else if (strcmp(myargv[p+1],"sdl")==0) {
+            sound = SOUND_DRV_SDL;
+        }
     }
-    
-    return true;
+
+    if (sound & (SOUND_DRV_AUTO | SOUND_DRV_SB)) {
+        drv.I_InitSound = I_InitSound_SB;
+        drv.I_UpdateSound = I_UpdateSound_SB;
+        drv.I_ShutdownSound = I_ShutdownSound_SB;
+        if (drv.I_InitSound()) {
+            sysaudio.sound_enabled = true;
+            return true;
+        }
+    }
+
+    if (sound & (SOUND_DRV_AUTO | SOUND_DRV_SDL)) {
+        drv.I_InitSound = I_InitSound_SDL;
+        drv.I_UpdateSound = I_UpdateSound_SDL;
+        drv.I_ShutdownSound = I_ShutdownSound_SDL;
+        if (drv.I_InitSound()) {
+            sysaudio.sound_enabled = true;
+            return true;
+        }
+    }
+    return false;
 }

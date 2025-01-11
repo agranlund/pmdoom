@@ -23,62 +23,38 @@
 #include "doomdef.h"
 #include "doomstat.h"
 #include "sounds.h"
+#include "i_audio.h"
 
-
-
-// Init at program start...
 int I_InitSound();
-
-// ... update sound buffer and audio device at runtime...
 void I_UpdateSound(void *unused, Uint8 *stream, int len);
-
-// ... shut down and relase at program termination.
 void I_ShutdownSound(void);
-
-
-//
-//  SFX I/O
-//
-
-// Initialize channels?
 void I_SetChannels();
-
-// Get raw data lump index for sound descriptor.
 int I_GetSfxLumpNum (sfxinfo_t* sfxinfo );
-
-
-// Starts a sound in a particular sound channel.
-int
-I_StartSound
-( int		id,
-  int		vol,
-  int		sep,
-  int		pitch,
-  int		priority );
-
-
-// Stops a sound channel.
+int I_StartSound(int id, int vol, int sep, int pitch, int priority);
 void I_StopSound(int handle);
-
-// Called by S_*() functions
-//  to see if a channel is still playing.
-// Returns 0 if no longer playing, 1 if playing.
 int I_SoundIsPlaying(int handle);
-
-// Updates the volume, separation,
-//  and pitch of a sound channel.
-void
-I_UpdateSoundParams
-( int		handle,
-  int		vol,
-  int		sep,
-  int		pitch );
-
-void*
-I_LoadSfx
-( char*         sfxname,
-  int*          len );
-
+void I_UpdateSoundParams(int handle, int vol, int sep, int pitch);
+void* I_LoadSfx(char* sfxname, int* len);
 void I_UpdateSounds(void);
+
+
+typedef struct {
+    Uint8*  startp;
+    Uint8*  end;
+	Uint32  length;
+    Uint32  position;
+
+	Uint32  step;
+	Uint32  stepremainder;	// or position.frac for m68k asm rout
+	int     start;          // Time/gametic that the channel started playing,
+	int     handle;
+	int		id;			
+
+    int*    leftvol_lookup;
+    int*    rightvol_lookup;
+
+} i_sound_channel_t;
+
+extern i_sound_channel_t i_sound_channels[NUM_CHANNELS];
 
 #endif

@@ -82,10 +82,49 @@ void I_ShutdownMusic(void)
     }
 }
 
+
+#define MUSIC_DRV_OFF       0
+#define MUSIC_DRV_AUTO      (1<<0)
+#define MUSIC_DRV_SDL       (1<<1)
+#define MUSIC_DRV_MIDI      (1<<2)
+#define MUSIC_DRV_ADLIB     (1<<3)
+
 int I_InitMusic(void)
 { 
     if (sysaudio.music_enabled) {
-	    if (M_CheckParm ("-adlib")) {
+        uint16_t music = MUSIC_DRV_AUTO;
+        int p = M_CheckParm ("-music");
+        if (p && (p<myargc-1)) {
+            if (strcmp(myargv[p+1],"adlib")==0) {
+                music = MUSIC_DRV_ADLIB;
+            }
+            else if (strcmp(myargv[p+1],"midi")==0) {
+                music = MUSIC_DRV_MIDI;
+            }
+#if 0
+            else if (strcmp(myargv[p+1],"sdl")==0) {
+                music = MUSIC_DRV_SDL;
+            }
+#endif                
+        }
+
+        if (music & (MUSIC_DRV_AUTO | MUSIC_DRV_MIDI)) {
+            drv.I_InitMusic         = I_InitMusic_MIDI;
+            drv.I_UpdateMusic       = I_UpdateMusic_MIDI;
+            drv.I_ShutdownMusic     = I_ShutdownMusic_MIDI;
+            drv.I_SetMusicVolume    = I_SetMusicVolume_MIDI;
+            drv.I_PauseSong         = I_PauseSong_MIDI;
+            drv.I_ResumeSong        = I_ResumeSong_MIDI;
+            drv.I_RegisterSong      = I_RegisterSong_MIDI;
+            drv.I_PlaySong          = I_PlaySong_MIDI;
+            drv.I_StopSong          = I_StopSong_MIDI;
+            drv.I_UnRegisterSong    = I_UnRegisterSong_MIDI;
+            drv.I_QrySongPlaying    = I_QrySongPlaying_MIDI;
+            if (drv.I_InitMusic())
+                return true;
+        }
+
+	    if (music & (MUSIC_DRV_AUTO | MUSIC_DRV_ADLIB)) {
             drv.I_InitMusic         = I_InitMusic_OPL;
             drv.I_UpdateMusic       = I_UpdateMusic_OPL;
             drv.I_ShutdownMusic     = I_ShutdownMusic_OPL;
@@ -101,23 +140,8 @@ int I_InitMusic(void)
                 return true;
         }
 
-        if (1) {
-            drv.I_InitMusic         = I_InitMusic_MIDI;
-            drv.I_UpdateMusic       = I_UpdateMusic_MIDI;
-            drv.I_ShutdownMusic     = I_ShutdownMusic_MIDI;
-            drv.I_SetMusicVolume    = I_SetMusicVolume_MIDI;
-            drv.I_PauseSong         = I_PauseSong_MIDI;
-            drv.I_ResumeSong        = I_ResumeSong_MIDI;
-            drv.I_RegisterSong      = I_RegisterSong_MIDI;
-            drv.I_PlaySong          = I_PlaySong_MIDI;
-            drv.I_StopSong          = I_StopSong_MIDI;
-            drv.I_UnRegisterSong    = I_UnRegisterSong_MIDI;
-            drv.I_QrySongPlaying    = I_QrySongPlaying_MIDI;
-            if (drv.I_InitMusic())
-                return true;
-        }
 #if 0
-        if (1) {
+        if (MUSIC & (MUSIC_DRV_AUTO | MUSIC_DRV_SDL)) {
             drv.I_InitMusic         = I_InitMusic_SDL;
             drv.I_UpdateMusic       = I_UpdateMusic_SDL;
             drv.I_ShutdownMusic     = I_ShutdownMusic_SDL;
