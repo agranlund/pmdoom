@@ -7,7 +7,7 @@ config.h
 config.log
 config.status
 stamp-h1
-doom.gtp
+doom.prg
 doom/*
 doom.zip
 autom4te.cache/*
